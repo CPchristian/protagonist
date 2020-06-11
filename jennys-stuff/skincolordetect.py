@@ -59,7 +59,7 @@ def hist_masking(frame, hist):
 
     disc = cv.getStructuringElement(cv.MORPH_ELLIPSE, (31, 31))
     cv.filter2D(dst, -1, disc, dst)
-    ret, thresh = cv.threshold(dst, 1, 255, cv.THRESH_BINARY)
+    ret, thresh = cv.threshold(dst, 0, 255, cv.THRESH_BINARY+cv.THRESH_OTSU)
     # thresh = cv.adaptiveThreshold(dst, 255, cv.ADAPTIVE_THRESH_MEAN_C,
     # 							  cv.THRESH_BINARY, 11, 2)
 
@@ -163,7 +163,7 @@ def contours(hist_mask_image):
 
 if __name__ == '__main__':
     # Testing using images before a video
-    img = cv.imread("hand1v2.jpg")
+    img = cv.imread("christianshand2.jpg")
 
     if img is None:
         sys.exit("Could not read the image")
@@ -182,7 +182,7 @@ if __name__ == '__main__':
     cv.waitKey(0)
 
     # Testing with Recorded Video:
-    vid = cv.VideoCapture("vid2.mp4")
+    vid = cv.VideoCapture("christian1.mov")
 
     while vid.isOpened():
         ret, frame = vid.read()
@@ -195,8 +195,8 @@ if __name__ == '__main__':
         h = int(frame.shape[0] * 50 / 100)
         frame = cv.resize(frame, (w, h))
         frame = cv.rotate(frame, cv.ROTATE_180)
-        manage_image_opr(frame, hist)
-        cv.imshow("actual vid",frame)
+        # manage_image_opr(frame, hist)
+        # cv.imshow("actual vid",frame)
 
         # 		# while not calibrate:
         # 		frame_rect = draw_rect(frame)
@@ -214,8 +214,8 @@ if __name__ == '__main__':
         # hist = hand_histogram(frame)
 
         # used for testing
-        # img_mask = hist_masking(frame, hist)
-        # cv.imshow("masked vid", img_mask)
+        img_mask = hist_masking(frame, hist)
+        cv.imshow("masked vid", img_mask)
         # cv.waitKey(0)
 
 
