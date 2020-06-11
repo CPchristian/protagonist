@@ -1,6 +1,117 @@
 import cv2
 import numpy as np
 from collections import deque
+import sys
+
+hand_hist = None
+traverse_point = []
+tot_rect = 9
+hand_rect_x1 = None
+hand_rect_y1 = None
+hand_rect_x2 = None
+hand_rect_y2 = None
+
+
+def draw_rect(frame):
+    rows, cols, _ = frame.shape
+    global tot_rect, hand_rect_x1, hand_rect_x2, hand_rect_y1, hand_rect_y2
+
+    hand_rect_x1 = np.array(
+        [6 * rows / 20, 6 * rows / 20, 6 * rows / 20, 9 * rows / 20, 9 * rows / 20, 9 * rows / 20, 12 * rows / 20,
+         12 * rows / 20, 12 * rows / 20], dtype=np.uint32)
+
+    hand_rect_y1 = np.array(
+        [9 * cols / 20, 10 * cols / 20, 11 * cols / 20, 9 * cols / 20, 10 * cols / 20, 11 * cols / 20, 9 * cols / 20,
+         10 * cols / 20, 11 * cols / 20], dtype=np.uint32)
+
+    hand_rect_x2 = hand_rect_x1 + 10
+    hand_rect_y2 = hand_rect_y1 + 10
+
+    # cv2.rectangle draws each of the  9 green rectangles on the frame.
+    for i in range(tot_rect):
+        cv2.rectangle(frame, (hand_rect_y1[i], hand_rect_x1[i]),
+                     (hand_rect_y2[i], hand_rect_x2[i]),
+                     (0, 255, 0), 1)
+
+    return frame
+
+
+# gets skin color samples from rectangles and converts to histogram
+def hand_histogram(frame):
+    global hand_rect_x1, hand_rect_y1
+
+    hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    cv2.imshow("HSV", hsv_frame)
+    cv2.waitKey(0)
+    # region of interest
+    roi = np.zeros([90, 10, 3], dtype=hsv_frame.dtype)
+
+    for i in range(tot_rect):
+        roi[i * 10: i * 10 + 10, 0:10] = hsv_frame[hand_rect_x1[i]: hand_rect_x1[i] + 10,
+                                         hand_rect_y1[i]: hand_rect_y1[i] + 10]
+    hand_hist = cv2.calcHist([roi], [0, 1], None, [180, 256], [0, 180, 0, 256])
+    return cv2.normalize(hand_hist, hand_hist, 0, 255, cv2.NORM_MINMAX)
+
+
+def hist_masking(frame, hist):
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    dst = cv2.calcBackProject([hsv], [0, 1], hist, [0, 200, 0, 256], 1)  #  original
+
+    dst = cv2.calcBackProject([hsv], [0, 1], hist, [0, 180, 0, 256], 1)  #  changed
+
+    disc = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (31, 31))
+    cv2.filter2D(dst, -1, disc, dst)
+    ret, thresh = cv2.threshold(dst, 0, 255, cv2.THRESH_BINARY)
+    # ret, thresh = cv2.threshold(dst, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    # thresh = cv2.adaptiveThreshold(dst, 255, cv2.ADAPTIVE_THRESH_MEAN_C,
+    # 							  cv2.THRESH_BINARY, 11, 2)
+
+    thresh = cv2.merge((thresh, thresh, thresh))
+    cv2.imshow("thresh w/o morph", thresh)
+
+    # Close Morphology:
+
+    kernel = np.ones((19,19), np.uint8)
+    thresh = cv2.dilate(thresh, kernel, iterations = 1)
+    kernel = np.ones((7, 7), np.uint8)
+    thresh = cv2.erode(thresh, kernel, iterations = 1)
+
+
+    # kernel = np.ones((79, 79), np.uint8)
+    # thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+
+    cv2.imshow("thresh w/ morph", thresh)
+    # cv2.waitKey(0)
+
+    return cv2.bitwise_and(frame, thresh)
+
+
+#---------------------------------------------------
+# Using functions:
+img = cv2.imread("bluecap.jpg")
+
+if img is None:
+    sys.exit("Could not read the image")
+
+cv2.imshow("original image", img)
+cv2.waitKey(0)
+
+img_rect = draw_rect(img)
+cv2.imshow("img with drawn rectangles", img_rect)
+cv2.waitKey(0)
+
+hist = hand_histogram(img)
+img_mask = hist_masking(img, hist)
+
+cv2.imshow("masked img", img_mask)
+cv2.waitKey(0)
+
+
+
+#---------------------------------------------------
+# Christian's code:
+
+
 
 # load in the video of red circle moved around
 cap = cv2.VideoCapture('blue4.mov')
@@ -93,6 +204,8 @@ while cap.isOpened():
     cv2.putText(frame, "GREEN", (540, 33), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
     cv2.putText(frame, "RED", (770, 33), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
     cv2.putText(frame, "YELLOW", (970, 33), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150,150,150), 2, cv2.LINE_AA)
+
+
 
 
 
